@@ -1,6 +1,7 @@
-import { useContext, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Context } from '../Provider'
+import { useContext, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Context } from '../Provider';
+import { DateTime } from 'luxon';
 
 const Home = () => {
   const { user } = useContext(Context);
@@ -17,15 +18,66 @@ const Home = () => {
 }
 
 const ShowPosts = () => {
+  const { posts, setPosts } = useContext(Context);
+
+  const fetchPosts = async () => {
+    const CustomHeader = new Headers();
+    CustomHeader.append('Content-Type', 'application/json');
+    const config = {
+      method: 'GET',
+      headers: CustomHeader,
+    }
+    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/fetch-posts`, config)
+      .then(response => response.json())
+      .then(result => {
+        if (result.success === true) {
+          setPosts(result.posts);
+        }
+        if (result.success === false) {
+          alert(result.msg);
+        }
+      })
+      .catch(err => alert(err));
+  }
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
   return (
     <div id='show_posts'>
+      {posts.map((post, id) => {
 
+        const formattedTimeAgo = (createdAt) => {
+          const createdDate = DateTime.fromISO(createdAt);
+          const now = DateTime.now();
+          const diff = now.diff(createdDate);
+          if (diff.as('days') >= 1) {
+            return `${Math.floor(diff.as('days'))} days ago`;
+          } else if (diff.as('hours') >= 1) {
+            return `${Math.floor(diff.as('hours'))} hours ago`;
+          } else if (diff.as('minutes') >= 1) {
+            return `${Math.floor(diff.as('minutes'))} minutes ago`;
+          } else {
+            return `${Math.floor(diff.as('seconds'))} seconds ago`;
+          }
+        };
+
+        return (
+          <div className='post' key={post._id}>
+            <div className='post__header'>
+              <p>{post.user.name}</p>
+              <p>{formattedTimeAgo(post.createdAt)}</p>
+            </div>
+            <p>{post.text}</p>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 const CreatePost = () => {
-  const { user } = useContext(Context);
+  const { user, posts, setPosts } = useContext(Context);
   const [text, setText] = useState("");
 
   const handleCreatePost = async (e) => {
@@ -45,8 +97,8 @@ const CreatePost = () => {
       .then(response => response.json())
       .then(result => {
         if (result.success === true) {
+          setPosts([result.post, ...posts]);
           setText("");
-          alert(result.msg);
         }
         if (result.success === false) {
           alert(result.msg);
